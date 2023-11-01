@@ -267,7 +267,7 @@ def _cst_dp_serial(network):
 					if cost < min_cost:
 						min_cost = cost
 						min_S = S
-				
+
 				# Fill theta and best_cst_adjacent.
 				theta[k_index][SI] = min_cost
 				best_S[k_index][SI] = min_S
@@ -293,11 +293,7 @@ def _cst_dp_serial(network):
 		k = network.get_node_from_index(k_index)
 
 		# Determine SI.
-		if k_index == num_nodes:
-			SI = k.external_inbound_cst
-		else:
-			SI = opt_cst[k_index+1]
-
+		SI = k.external_inbound_cst if k_index == num_nodes else opt_cst[k_index+1]
 		# Get best S for this SI.
 		opt_cst[k_index] = best_S[k_index][SI]
 

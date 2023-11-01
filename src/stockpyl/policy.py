@@ -135,10 +135,10 @@ class Policy(object):
 		if other is None:
 			return False
 		else:
-			for attr in self._DEFAULT_VALUES.keys():
-				if getattr(self, attr) != getattr(other, attr):
-					return False
-			return True
+			return all(
+				getattr(self, attr) == getattr(other, attr)
+				for attr in self._DEFAULT_VALUES.keys()
+			)
 
 	def __ne__(self, other):
 		"""Determine whether ``other`` is not equal to this policy object. 
@@ -325,10 +325,7 @@ class Policy(object):
 			for attr in cls._DEFAULT_VALUES.keys():
 				# Remove leading '_' to get property names.
 				prop = attr[1:] if attr[0] == '_' else attr
-				if prop in the_dict:
-					value = the_dict[prop]
-				else:
-					value = cls._DEFAULT_VALUES[attr]
+				value = the_dict[prop] if prop in the_dict else cls._DEFAULT_VALUES[attr]
 				setattr(pol, prop, value)
 
 		return pol
@@ -383,29 +380,30 @@ class Policy(object):
 		# Was inventory_position provided?
 		if inventory_position is not None:
 			IP = inventory_position
+		elif self.type == 'FQ':
+			# Fixed-quantity policy does not need inventory position.
+			IP = None
 		else:
-			if self.type == 'FQ':
-				# Fixed-quantity policy does not need inventory position.
-				IP = None
-			else:
 				# Make sure node attribute is set or inventory_position is provided.
-				if self.node is None and inventory_position is None:
-					raise AttributeError("You must either provide inventory_position or set the node attribute of the Policy object to the node that it refers to. (Usually this should be done when you first create the Policy object.)")
+			if self.node is None:
+				raise AttributeError("You must either provide inventory_position or set the node attribute of the Policy object to the node that it refers to. (Usually this should be done when you first create the Policy object.)")
 
-				# Calculate total demand (inbound orders), including successor nodes and
-				# external demand.
-				demand = self.node._get_attribute_total('inbound_order', self.node.network.period)
+			# Calculate total demand (inbound orders), including successor nodes and
+			# external demand.
+			demand = self.node._get_attribute_total('inbound_order', self.node.network.period)
 
 				# Calculate (local or echelon) inventory position, before demand is subtracted.
-				if self.type in ('EBS', 'BEBS'):
-					IP_before_demand = \
-						self.node.state_vars_current.echelon_inventory_position(predecessor_index=predecessor_index)
-				else:
-					IP_before_demand = \
-						self.node.state_vars_current.inventory_position(predecessor_index=predecessor_index)
-
-				# Calculate current inventory position, after demand is subtracted.
-				IP = IP_before_demand - demand
+			IP_before_demand = (
+				self.node.state_vars_current.echelon_inventory_position(
+					predecessor_index=predecessor_index
+				)
+				if self.type in ('EBS', 'BEBS')
+				else self.node.state_vars_current.inventory_position(
+					predecessor_index=predecessor_index
+				)
+			)
+			# Calculate current inventory position, after demand is subtracted.
+			IP = IP_before_demand - demand
 
 		# Determine order quantity based on policy.
 		if self.type == 'BS':
@@ -426,13 +424,11 @@ class Policy(object):
 			# Was EIPA provided?
 			if echelon_inventory_position_adjusted is not None:
 				EIPA = echelon_inventory_position_adjusted
+			elif self.node.index == max(self.node.network.node_indices):
+				EIPA = np.inf
 			else:
-				# Determine partner node and adjusted echelon inventory position.
-				if self.node.index == max(self.node.network.node_indices):
-					EIPA = np.inf
-				else:
-					partner_node = self.node.network.get_node_from_index(self.node.index + 1)
-					EIPA = partner_node.state_vars_current._echelon_inventory_position_adjusted()
+				partner_node = self.node.network.get_node_from_index(self.node.index + 1)
+				EIPA = partner_node.state_vars_current._echelon_inventory_position_adjusted()
 
 			return self._get_order_quantity_balanced_echelon_base_stock(IP, EIPA)
 		else:
@@ -487,10 +483,7 @@ class Policy(object):
 			The order quantity.
 		"""
 
-		if inventory_position <= self.reorder_point:
-			return self.order_quantity
-		else:
-			return 0.0
+		return self.order_quantity if inventory_position <= self.reorder_point else 0.0
 
 	def _get_order_quantity_fixed_quantity(self):
 		"""Calculate order quantity using fixed-quantity policy.

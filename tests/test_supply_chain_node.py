@@ -180,13 +180,12 @@ class TestDescendants(unittest.TestCase):
 
 		nodes = network.nodes
 
-		desc = {}
-		for n in network.nodes:
-			desc[n.index] = set(n.descendants)
-
+		desc = {n.index: set(n.descendants) for n in network.nodes}
 		self.assertEqual(desc[1], set([]))
-		self.assertEqual(desc[2], set([network.get_node_from_index(1)]))
-		self.assertEqual(desc[3], set([network.get_node_from_index(1), network.get_node_from_index(2)]))
+		self.assertEqual(desc[2], {network.get_node_from_index(1)})
+		self.assertEqual(
+			desc[3], {network.get_node_from_index(1), network.get_node_from_index(2)}
+		)
 
 	def test_4_node_owmr(self):
 		"""Test descendants for 4-node OWMR system.
@@ -195,19 +194,13 @@ class TestDescendants(unittest.TestCase):
 
 		network = SupplyChainNetwork()
 
-		nodes = []
-		for i in range(4):
-			nodes.append(SupplyChainNode(i))
-
+		nodes = [SupplyChainNode(i) for i in range(4)]
 		network.add_node(nodes[0])
 		network.add_successor(nodes[0], nodes[1])
 		network.add_successor(nodes[0], nodes[2])
 		network.add_successor(nodes[0], nodes[3])
 
-		desc = {}
-		for i in range(len(nodes)):
-			desc[i] = nodes[i].descendants
-
+		desc = {i: nodes[i].descendants for i in range(len(nodes))}
 		self.assertEqual(desc[0], [nodes[1], nodes[2], nodes[3]])
 		self.assertEqual(desc[1], [])
 		self.assertEqual(desc[2], [])
@@ -232,12 +225,11 @@ class TestAncestors(unittest.TestCase):
 
 		network = load_instance("example_6_1")
 
-		anc = {}
-		for n in network.nodes:
-			anc[n.index] = set(n.ancestors)
-
-		self.assertEqual(anc[1], set([network.get_node_from_index(2), network.get_node_from_index(3)]))
-		self.assertEqual(anc[2], set([network.get_node_from_index(3)]))
+		anc = {n.index: set(n.ancestors) for n in network.nodes}
+		self.assertEqual(
+			anc[1], {network.get_node_from_index(2), network.get_node_from_index(3)}
+		)
+		self.assertEqual(anc[2], {network.get_node_from_index(3)})
 		self.assertEqual(anc[3], set([]))
 
 	def test_4_node_owmr(self):
@@ -247,19 +239,13 @@ class TestAncestors(unittest.TestCase):
 
 		network = SupplyChainNetwork()
 
-		nodes = []
-		for i in range(4):
-			nodes.append(SupplyChainNode(i))
-
+		nodes = [SupplyChainNode(i) for i in range(4)]
 		network.add_node(nodes[0])
 		network.add_successor(nodes[0], nodes[1])
 		network.add_successor(nodes[0], nodes[2])
 		network.add_successor(nodes[0], nodes[3])
 
-		anc = {}
-		for i in range(len(nodes)):
-			anc[i] = nodes[i].ancestors
-
+		anc = {i: nodes[i].ancestors for i in range(len(nodes))}
 		self.assertEqual(anc[0], [])
 		self.assertEqual(anc[1], [nodes[0]])
 		self.assertEqual(anc[2], [nodes[0]])
@@ -1197,20 +1183,18 @@ class TestNodeStateVarsToFromDict(unittest.TestCase):
 		# Original NodeStateVars.
 		original_nsv_lists = {n.index: n.state_vars for n in network.nodes}
 
-		# Convert to dicts.
-		nsv_dict_lists = {}
-		for ind, nsv_list in original_nsv_lists.items():
-			nsv_dict_lists[ind] = [nsv.to_dict() for nsv in nsv_list]
-
-		# Convert back.
-		nsv_lists_converted = {}
-		for ind, nsv_dict_list in nsv_dict_lists.items():
-			nsv_lists_converted[ind] = [NodeStateVars.from_dict(nsv_dict) for nsv_dict in nsv_dict_list]
-
+		nsv_dict_lists = {
+			ind: [nsv.to_dict() for nsv in nsv_list]
+			for ind, nsv_list in original_nsv_lists.items()
+		}
+		nsv_lists_converted = {
+			ind: [NodeStateVars.from_dict(nsv_dict) for nsv_dict in nsv_dict_list]
+			for ind, nsv_dict_list in nsv_dict_lists.items()
+		}
 		# Set node attributes to in original_nsv_lists to the node's indices 
 		# (otherwise deep_equal_to() will get confused since from_dict() will only
 		# set node to the node's index).
-		for ind, nsv_list in original_nsv_lists.items():
+		for nsv_list in original_nsv_lists.values():
 			for t in range(len(nsv_list)):
 				nsv_list[t].node = nsv_list[t].node.index
 
@@ -1237,20 +1221,18 @@ class TestNodeStateVarsToFromDict(unittest.TestCase):
 		# Original NodeStateVars.
 		original_nsv_lists = {n.index: n.state_vars for n in network.nodes}
 
-		# Convert to dicts.
-		nsv_dict_lists = {}
-		for ind, nsv_list in original_nsv_lists.items():
-			nsv_dict_lists[ind] = [nsv.to_dict() for nsv in nsv_list]
-
-		# Convert back.
-		nsv_lists_converted = {}
-		for ind, nsv_dict_list in nsv_dict_lists.items():
-			nsv_lists_converted[ind] = [NodeStateVars.from_dict(nsv_dict) for nsv_dict in nsv_dict_list]
-
+		nsv_dict_lists = {
+			ind: [nsv.to_dict() for nsv in nsv_list]
+			for ind, nsv_list in original_nsv_lists.items()
+		}
+		nsv_lists_converted = {
+			ind: [NodeStateVars.from_dict(nsv_dict) for nsv_dict in nsv_dict_list]
+			for ind, nsv_dict_list in nsv_dict_lists.items()
+		}
 		# Set node attributes to in original_nsv_lists to the node's indices 
 		# (otherwise deep_equal_to() will get confused since from_dict() will only
 		# set node to the node's index).
-		for ind, nsv_list in original_nsv_lists.items():
+		for nsv_list in original_nsv_lists.values():
 			for t in range(len(nsv_list)):
 				nsv_list[t].node = nsv_list[t].node.index
 

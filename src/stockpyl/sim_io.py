@@ -262,7 +262,7 @@ def _dict_to_header_list(d, abbrev):
 	header_list = []
 	for i in sorted_dict_keys:
 		if i is None:
-			header_list.append(abbrev + ":EXT")
+			header_list.append(f"{abbrev}:EXT")
 		else:
 			header_list.append(abbrev + ":{:d}".format(i))
 

@@ -130,16 +130,10 @@ def solution_cost_from_base_stock_levels(tree, local_bsl):
 
 	"""
 
-	cost = 0
-	for k in tree.nodes:
-		# Calculate safety stock and holding cost.
-		safety_stock = local_bsl[k.index] - k.net_demand_mean
-		holding_cost = k.holding_cost * safety_stock
-
-		# Set stage_cost equal to holding cost at node_k.
-		cost += holding_cost
-
-	return cost
+	return sum(
+		k.holding_cost * (local_bsl[k.index] - k.net_demand_mean)
+		for k in tree.nodes
+	)
 
 
 def inbound_cst(tree, node_index, cst):
@@ -196,10 +190,7 @@ def inbound_cst(tree, node_index, cst):
 		if len(k_node.predecessors()) > 0:
 			SI[k] = max(SI[k], np.max([cst[i] for i in k_node.predecessor_indices()]))
 
-	if n_is_iterable:
-		return SI
-	else:
-		return SI[node_index[0]]
+	return SI if n_is_iterable else SI[node_index[0]]
 
 
 def net_lead_time(tree, node_index, cst):
@@ -248,16 +239,11 @@ def net_lead_time(tree, node_index, cst):
 	# Get inbound CSTs.
 	SI = inbound_cst(tree, node_index, cst)
 
-	# Determine NLTs.
-	nlt = {}
-	for k in node_index:
-		# Determine NLT.
-		nlt[k] = SI[k] + tree.get_node_from_index(k).processing_time - cst[k]
-
-	if n_is_iterable:
-		return nlt
-	else:
-		return nlt[node_index[0]]
+	nlt = {
+		k: SI[k] + tree.get_node_from_index(k).processing_time - cst[k]
+		for k in node_index
+	}
+	return nlt if n_is_iterable else nlt[node_index[0]]
 
 
 def cst_to_base_stock_levels(tree, node_index, cst):
@@ -307,14 +293,11 @@ def cst_to_base_stock_levels(tree, node_index, cst):
 	nlt = net_lead_time(tree, node_index, cst)
 	ss = safety_stock_levels(tree, node_index, cst)
 
-	base_stock_level = {}
-	for k in node_index:
-		base_stock_level[k] = tree.get_node_from_index(k).net_demand_mean * nlt[k] + ss[k]
-
-	if n_is_iterable:
-		return base_stock_level
-	else:
-		return base_stock_level[node_index[0]]
+	base_stock_level = {
+		k: tree.get_node_from_index(k).net_demand_mean * nlt[k] + ss[k]
+		for k in node_index
+	}
+	return base_stock_level if n_is_iterable else base_stock_level[node_index[0]]
 
 
 def safety_stock_levels(tree, node_index, cst):

@@ -91,11 +91,7 @@ class TestsSCost(unittest.TestCase):
 			 79.554, 50.406, 51.632, 52.757, 53.518, 71.611, 72.246, 76.679, 77.929, 78.287, 78.402]
 
 		# To run only every ``skip`` instances, set ``step`` below.
-		if RUN_ALL_TESTS:
-			step = 1
-		else:
-			step = 10
-
+		step = 1 if RUN_ALL_TESTS else 10
 		for n in range(1, len(mu), step):
 			cost = s_s_cost_discrete(s[n], S[n], h, p, K, True, mu[n], None, None)
 			self.assertAlmostEqual(cost, c[n], places=3)
@@ -162,11 +158,7 @@ class TestsSOptimalsS(unittest.TestCase):
 			 79.554, 50.406, 51.632, 52.757, 53.518, 71.611, 72.246, 76.679, 77.929, 78.287, 78.402]
 
 		# To run only every ``skip`` instances, set ``step`` below.
-		if RUN_ALL_TESTS:
-			step = 1
-		else:
-			step = 10
-
+		step = 1 if RUN_ALL_TESTS else 10
 		for n in range(1, len(mu), step):
 			s, S, g = s_s_discrete_exact(h, p, K, True, mu[n])
 			self.assertEqual(s, s_opt[n])

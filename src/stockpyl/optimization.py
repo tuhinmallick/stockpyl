@@ -92,7 +92,7 @@ def golden_section_search(f, a, b, tol=1e-5, verbose=False):
 	if verbose:
 		print("a = {:15.8f} b = {:15.8f} c = {:15.8f} d = {:15.8f} f(c) = {:15.8f} f(d) = {:15.8f}".format(a, b, c, d, yc, yd))
 
-	for k in range(n-1):
+	for _ in range(n-1):
 		if yc < yd:
 			b = d
 			d = c
@@ -111,11 +111,7 @@ def golden_section_search(f, a, b, tol=1e-5, verbose=False):
 		if verbose:
 			print("a = {:15.8f} b = {:15.8f} c = {:15.8f} d = {:15.8f} f(c) = {:15.8f} f(d) = {:15.8f}".format(a, b, c, d, yc, yd))
 
-	if yc < yd:
-		x_star = (a + d) / 2
-	else:
-		x_star = (c + b) / 2
-
+	x_star = (a + d) / 2 if yc < yd else (c + b) / 2
 	f_star = f(x_star)
 
 	return x_star, f_star

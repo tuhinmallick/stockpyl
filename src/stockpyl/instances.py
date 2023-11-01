@@ -117,16 +117,10 @@ def load_instance(instance_name, filepath=None, ignore_state_vars=True):
 			for n in instance.nodes:
 				n.state_vars = []
 
-		return instance
-	else:
-		# As a dict. Leave in place. But:
-		# If the instance contains any dicts with integer keys, they will have
-		# been saved as strings when the JSON was saved. Convert them back to integers here.
-		# Currently, only demand_pmf has this issue.
-		if 'demand_pmf' in instance.keys():
-			instance['demand_pmf'] = {int(k): v for k, v in instance['demand_pmf'].items()}
+	elif 'demand_pmf' in instance.keys():
+		instance['demand_pmf'] = {int(k): v for k, v in instance['demand_pmf'].items()}
 
-		return instance
+	return instance
 
 def save_instance(instance_name, instance_data, instance_description='', filepath=None, 
 	replace=True, create_if_none=True, omit_state_vars=True):
@@ -165,17 +159,15 @@ def save_instance(instance_name, instance_data, instance_description='', filepat
 		# Load data from JSON.
 		with open(filepath) as f:
 			json_contents = json.load(f)
+	elif create_if_none:
+		json_contents = {
+			"_id": "",
+			"instances": [],
+			"last_updated": ""
+		}
 	else:
-		# Should we create it?
-		if create_if_none:
-			json_contents = {
-				"_id": "",
-				"instances": [],
-				"last_updated": ""
-			}
-		else:
-			warnings.warn('filepath does not exist and create_if_none is False; no action was taken')
-			return
+		warnings.warn('filepath does not exist and create_if_none is False; no action was taken')
+		return
 
 	# Look for instance. (https://stackoverflow.com/a/8653568/3453768)
 	instance_index = next((i for i, item in enumerate(json_contents["instances"]) \
@@ -224,7 +216,7 @@ def save_instance(instance_name, instance_data, instance_description='', filepat
 
 	# Make sure path exists; if not, create it.
 	os.makedirs(os.path.dirname(filepath), exist_ok=True)
-	
+
 	# Write all instances to JSON.
 	with open(filepath, 'w') as f:
 		json.dump(json_contents, f)

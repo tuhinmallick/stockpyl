@@ -160,10 +160,10 @@ class DemandSource(object):
 		if other is None:
 			return False
 		else:
-			for attr in self._DEFAULT_VALUES.keys():
-				if getattr(self, attr) != getattr(other, attr):
-					return False
-			return True
+			return all(
+				getattr(self, attr) == getattr(other, attr)
+				for attr in self._DEFAULT_VALUES.keys()
+			)
 
 	def __ne__(self, other):
 		"""Determine whether ``other`` is not equal to this demand source object. 
@@ -255,22 +255,21 @@ class DemandSource(object):
 		``scipy.stats.rv_discrete`` object. Read only.
 		"""
 		if self.type is None:
-			distribution = None
+			return None
 		elif self.type == 'N':
-			distribution = scipy.stats.norm(self.mean, self.standard_deviation)
+			return scipy.stats.norm(self.mean, self.standard_deviation)
 		elif self.type == 'P':
-			distribution = scipy.stats.poisson(self.mean)
+			return scipy.stats.poisson(self.mean)
 		elif self.type == 'UD':
-			distribution = scipy.stats.randint(self.lo, self.hi+1)
+			return scipy.stats.randint(self.lo, self.hi+1)
 		elif self.type == 'UC':
-			distribution = scipy.stats.uniform(self.lo, self.hi - self.lo)
+			return scipy.stats.uniform(self.lo, self.hi - self.lo)
 		elif self.type == 'CD':
-			distribution = scipy.stats.rv_discrete(name='custom',
-												   values=(self.demand_list, self.probabilities))
+			return scipy.stats.rv_discrete(
+				name='custom', values=(self.demand_list, self.probabilities)
+			)
 		else:
-			distribution = None
-
-		return distribution
+			return None
 
 	# SPECIAL MEMBERS
 
@@ -296,16 +295,16 @@ class DemandSource(object):
 				self.lo, self.hi)
 		elif self.type == 'D':
 			if not is_list(self.demand_list) or len(self.demand_list) <= 8:
-				param_str = "demand_list={}".format(self.demand_list)
+				param_str = f"demand_list={self.demand_list}"
 			else:
-				param_str = "demand_list={}...".format(self.demand_list[0:8])
+				param_str = f"demand_list={self.demand_list[:8]}..."
 		elif self.type == 'CD':
 			if len(self.demand_list) <= 8:
-				param_str = "demand_list={}, probabilities={}".format(
-					self.demand_list, self.probabilities)
+				param_str = (
+					f"demand_list={self.demand_list}, probabilities={self.probabilities}"
+				)
 			else:
-				param_str = "demand_list={}..., probabilities={}...".format(
-					self.demand_list[0:8], self.probabilities[0:8])
+				param_str = f"demand_list={self.demand_list[:8]}..., probabilities={self.probabilities[:8]}..."
 		else:
 			param_str = ""
 
@@ -413,10 +412,7 @@ class DemandSource(object):
 			for attr in cls._DEFAULT_VALUES.keys():
 				# Remove leading '_' to get property names.
 				prop = attr[1:] if attr[0] == '_' else attr
-				if prop in the_dict:
-					value = the_dict[prop]
-				else:
-					value = cls._DEFAULT_VALUES[attr]
+				value = the_dict[prop] if prop in the_dict else cls._DEFAULT_VALUES[attr]
 				setattr(ds, prop, value)
 
 		return ds
@@ -522,17 +518,16 @@ class DemandSource(object):
 			The demand value.
 
 		"""
-		if is_iterable(self.demand_list):
-			if period is None:
-				# Return first demand in demand_list list.
-				return self.demand_list[0]
-			else:
-				# Get demand for period mod (# periods in demand_list list), i.e.,
-				# if we are past the end of the demand_list list, loop back to the beginning.
-				return self.demand_list[period % len(self.demand_list)]
-		else:
+		if not is_iterable(self.demand_list):
 			# Return demand_list singleton.
 			return self.demand_list
+		if period is None:
+			# Return first demand in demand_list list.
+			return self.demand_list[0]
+		else:
+			# Get demand for period mod (# periods in demand_list list), i.e.,
+			# if we are past the end of the demand_list list, loop back to the beginning.
+			return self.demand_list[period % len(self.demand_list)]
 
 	def _generate_demand_custom_discrete(self):
 		"""Generate demand from custom discrete distribution.
@@ -567,9 +562,8 @@ class DemandSource(object):
 
 		if self.type in (None, 'D'):
 			return None
-		else:
-			distribution = self.demand_distribution
-			return distribution.cdf(x)
+		distribution = self.demand_distribution
+		return distribution.cdf(x)
 
 
 	def lead_time_demand_distribution(self, lead_time):

@@ -118,12 +118,7 @@ def simulation(network, num_periods, rand_seed=None, progress_bar=True, consiste
 	# Close progress bar.
 	pbar.close()
 
-	# Close down simulation:
-	# 	* Calculate the total cost over all nodes and periods.
-	total_cost = close(network=network)
-
-	# Return total cost.
-	return total_cost
+	return close(network=network)
 
 
 def initialize(network, num_periods, rand_seed=None):
@@ -371,13 +366,11 @@ def _generate_downstream_orders(node_index, network, period, visited, order_quan
 			if order_quantity_override is not None and node in order_quantity_override \
 				and order_quantity_override[node] is not None:
 				order_quantity = order_quantity_override[node]
-			# Is there an order-pausing disruption?
 			elif node.disrupted and node.disruption_process.disruption_type == 'OP':
 				order_quantity = 0
+			elif node.inventory_policy is None:
+				raise AttributeError(f"The inventory_policy attribute for {node.index} is None. You must provide a Policy object in order for the simulation to set order quantities.")
 			else:
-				# Calculate order quantity.
-				if node.inventory_policy is None:
-					raise AttributeError(f"The inventory_policy attribute for {node.index} is None. You must provide a Policy object in order for the simulation to set order quantities.")
 				order_quantity = node.inventory_policy.get_order_quantity(predecessor_index=p.index)
 			# Place order in predecessor's order pipeline.
 			p.state_vars_current.inbound_order_pipeline[node_index][order_lead_time] = \
@@ -511,7 +504,7 @@ def _initialize_state_vars(network):
 				n.state_vars[0].inbound_order_pipeline[s.index][l] = s.initial_orders or 0
 
 		# Initialize raw material inventory.
-		for p in n.predecessor_indices(include_external=True):
+		for _ in n.predecessor_indices(include_external=True):
 			n.state_vars[0].raw_material_inventory[p_index] = 0
 
 
@@ -765,12 +758,12 @@ def _process_outbound_shipments(node, starting_inventory_level, new_finished_goo
 	global issued_backorder_warning
 	if consistency_checks in ('W', 'WF', 'E', 'EF') and not issued_backorder_warning:
 		# Double-check BO calculations.
-		current_backorders_check = node._get_attribute_total('backorders_by_successor', node.network.period) 
+		current_backorders_check = node._get_attribute_total('backorders_by_successor', node.network.period)
 		if not np.isclose(current_backorders, current_backorders_check):
 			if consistency_checks in ('WF', 'EF'):
 				# Write instance and simulation data to file.
-				filename = 'failed_instance_' + str(datetime.datetime.now())
-				filepath = 'aux_files/'+filename+'.json'
+				filename = f'failed_instance_{str(datetime.datetime.now())}'
+				filepath = f'aux_files/{filename}.json'
 				write_instance_and_states(
 					network=node.network, 
 					filepath=filepath,
@@ -778,16 +771,13 @@ def _process_outbound_shipments(node, starting_inventory_level, new_finished_goo
 				)
 			# Issue warning.
 			# See https://stackoverflow.com/q/287871/3453768 for terminal text color.
-			if consistency_checks in ('W', 'WF'):
-				textcolor = '\033[93m'
-			else:
-				textcolor = '\033[91m'
+			textcolor = '\033[93m' if consistency_checks in ('W', 'WF') else '\033[91m'
 			warning_msg = f"\n{textcolor}Backorder check failed! current_backorders = {current_backorders} <> current_backorders_check = {current_backorders_check}, node = {node.index}, period = {node.network.period}.\n"
 			if consistency_checks in ('WF', 'EF'):
 				warning_msg += f"The instance and simulation data have been written to {filepath}.\n"
 			warning_msg += f"Please post an issue at https://github.com/LarrySnyder/stockpyl/issues or contact the developer directly.\n"
 			if consistency_checks in ('W', 'WF'):
-				warning_msg += f"Simulation will proceed, but results may be incorrect."
+				warning_msg += "Simulation will proceed, but results may be incorrect."
 			warning_msg += "\x1b[0m" # reset color
 			if consistency_checks in ('W', 'WF'):
 				warnings.warn(warning_msg)
@@ -843,7 +833,7 @@ def _process_outbound_shipments(node, starting_inventory_level, new_finished_goo
 		DMFS = max(0, OS - node.state_vars_current.backorders_by_successor[s_index])
 		node.state_vars_current.demand_met_from_stock += DMFS
 		node.state_vars_current.demand_met_from_stock_cumul += DMFS
-		
+
 		# Update IL and BO.
 		node.state_vars_current.inventory_level -= node.state_vars_current.inbound_order[s_index]
 
@@ -953,7 +943,7 @@ def run_multiple_trials(network, num_trials, num_periods, rand_seed=None, progre
 	np.random.seed(rand_seed)
 
 	# Run trials.
-	for t in range(num_trials):
+	for _ in range(num_trials):
 		# Update progress bar.
 		pbar.update()
 

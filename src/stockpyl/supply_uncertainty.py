@@ -286,9 +286,7 @@ def eoq_with_disruptions_cost(order_quantity, fixed_cost,
 	numer = (fixed_cost + holding_cost * order_quantity**2 / (2 * demand_rate)
 			+ stockout_cost * demand_rate * psi / recovery_rate)
 	denom = order_quantity / demand_rate + psi / recovery_rate
-	cost = numer / denom
-
-	return cost
+	return numer / denom
 
 
 def newsvendor_with_disruptions(holding_cost, stockout_cost, demand, disruption_prob,
@@ -692,16 +690,14 @@ def newsvendor_with_additive_yield_uncertainty(holding_cost, stockout_cost, dema
 		# Calculate loss functions.
 		if yield_mean is not None and yield_sd is not None:
 			n, n_bar = normal_loss(R, yield_mean, yield_sd)
+		elif loss_function is None:
+			n, n_bar = (
+				discrete_loss(R, yield_distribution)
+				if is_discrete_distribution(yield_distribution)
+				else continuous_loss(R, yield_distribution)
+			)
 		else:
-			# Is loss function provided?
-			if loss_function is not None:
-				n, n_bar = loss_function(R)
-			else:
-				if is_discrete_distribution(yield_distribution):
-					n, n_bar = discrete_loss(R, yield_distribution)
-				else:
-					n, n_bar = continuous_loss(R, yield_distribution)
-
+			n, n_bar = loss_function(R)
 	# Calculate cost.
 	cost = stockout_cost * n_bar + holding_cost * n
 

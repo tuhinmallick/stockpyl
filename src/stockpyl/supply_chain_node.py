@@ -510,16 +510,15 @@ class SupplyChainNode(object):
 		# Initialize name of violating attribute (used for debugging) and equality flag.
 		viol_attr = None
 		eq = True
-		
+
 		if other is None:
 			eq = False
 		else:
 			# Special handling for some attributes.
 			for attr in self._DEFAULT_VALUES.keys():
 				if attr in ('network', 'local_holding_cost_function', 'stockout_cost_function', 'state_vars'):
-					# Ignore.
-					pass
-				elif attr == '_predecessors':
+					continue
+				if attr == '_predecessors':
 					# Only compare indices.
 					if sorted(self.predecessor_indices()) != sorted(other.predecessor_indices()):
 						viol_attr = attr
@@ -535,8 +534,8 @@ class SupplyChainNode(object):
 						viol_attr = attr
 						eq = False
 				elif attr in ('local_holding_cost', 'echelon_holding_cost', 'in_transit_holding_cost', \
-					'stockout_cost', 'revenue', 'initial_inventory_level', 'initial_orders', 'initial_shipments' \
-					'demand_bound_constant', 'units_required', 'net_demand_mean', 'net_demand_standard_deviation'):
+						'stockout_cost', 'revenue', 'initial_inventory_level', 'initial_orders', 'initial_shipments' \
+						'demand_bound_constant', 'units_required', 'net_demand_mean', 'net_demand_standard_deviation'):
 					# These attributes need approximate comparisons.
 					if not isclose(getattr(self, attr) or 0, getattr(other, attr) or 0, rel_tol=rel_tol):
 						viol_attr = attr
@@ -544,14 +543,13 @@ class SupplyChainNode(object):
 				elif attr in ('demand_source', 'disruption_process'):
 					# Check for None in object or object type.
 					if (getattr(self, attr) is None and getattr(other, attr) is not None) or \
-						(getattr(self, attr) is not None and getattr(other, attr) is None) or \
-						getattr(self, attr) != getattr(other, attr):
+							(getattr(self, attr) is not None and getattr(other, attr) is None) or \
+							getattr(self, attr) != getattr(other, attr):
 						viol_attr = attr
 						eq = False
-				else:
-					if getattr(self, attr) != getattr(other, attr):
-						viol_attr = attr
-						eq = False
+				elif getattr(self, attr) != getattr(other, attr):
+					viol_attr = attr
+					eq = False
 
 		return eq
 
@@ -625,10 +623,11 @@ class SupplyChainNode(object):
 			for attr in cls._DEFAULT_VALUES.keys():
 				# Some attributes require special handling.
 				if attr in ('_predecessors', '_successors'):
-					if attr in the_dict:
-						value = copy.deepcopy(the_dict[attr])
-					else:
-						value = copy.deepcopy(cls._DEFAULT_VALUES[attr])
+					value = (
+						copy.deepcopy(the_dict[attr])
+						if attr in the_dict
+						else copy.deepcopy(cls._DEFAULT_VALUES[attr])
+					)
 				elif attr == 'demand_source':
 					if attr in the_dict:
 						value = demand_source.DemandSource.from_dict(the_dict[attr])
@@ -657,13 +656,12 @@ class SupplyChainNode(object):
 								sv.node = node
 					else:
 						value = cls._DEFAULT_VALUES[attr]
+				elif attr in the_dict:
+					value = the_dict[attr]
 				else:
-					if attr in the_dict:
-						value = the_dict[attr]
-					else:
-						value = cls._DEFAULT_VALUES[attr]
+					value = cls._DEFAULT_VALUES[attr]
 				setattr(node, attr, value)
-		
+
 		return node
 		
 	# Neighbor management.
@@ -746,10 +744,7 @@ class SupplyChainNode(object):
 		successor : |class_node|
 			A successor of the node.
 		"""
-		if len(self._successors) == 0:
-			return None
-		else:
-			return self._successors[0]
+		return None if len(self._successors) == 0 else self._successors[0]
 
 	def get_one_predecessor(self):
 		"""Get one predecessor of the node. If the node has more than one
@@ -761,10 +756,7 @@ class SupplyChainNode(object):
 		predecessor : |class_node|
 			A predecessor of the node.
 		"""
-		if len(self._predecessors) == 0:
-			return None
-		else:
-			return self._predecessors[0]
+		return None if len(self._predecessors) == 0 else self._predecessors[0]
 
 	# Attribute management.
 
@@ -802,13 +794,30 @@ class SupplyChainNode(object):
 		"""
 		if attribute in ('inbound_shipment', 'on_order_by_predecessor', 'raw_material_inventory', 'inbound_disrupted_items'):
 			# These attributes are indexed by predecessor.
-			if period is None:
-				return float(np.sum([self.state_vars[t].__dict__[attribute][p_index]
-							   for t in range(len(self.state_vars))
-							   for p_index in self.predecessor_indices(include_external=True)]))
-			else:
-				return float(np.sum([self.state_vars[period].__dict__[attribute][p_index]
-							   for p_index in self.predecessor_indices(include_external=True)]))
+			return (
+				float(
+					np.sum(
+						[
+							self.state_vars[t].__dict__[attribute][p_index]
+							for t in range(len(self.state_vars))
+							for p_index in self.predecessor_indices(
+								include_external=True
+							)
+						]
+					)
+				)
+				if period is None
+				else float(
+					np.sum(
+						[
+							self.state_vars[period].__dict__[attribute][p_index]
+							for p_index in self.predecessor_indices(
+								include_external=True
+							)
+						]
+					)
+				)
+			)
 		elif attribute in ('inbound_order', 'outbound_shipment', 'backorders_by_successor', 'outbound_disrupted_items'):
 			# These attributes are indexed by successor.
 			if period is None:
@@ -818,11 +827,10 @@ class SupplyChainNode(object):
 			else:
 				return float(np.sum([self.state_vars[period].__dict__[attribute][s_index]
 							   for s_index in self.successor_indices(include_external=True)]))
+		elif period is None:
+			return np.sum([self.state_vars[:].__dict__[attribute]])
 		else:
-			if period is None:
-				return np.sum([self.state_vars[:].__dict__[attribute]])
-			else:
-				return self.state_vars[period].__dict__[attribute]
+			return self.state_vars[period].__dict__[attribute]
 
 	def reindex_all_state_variables(self, old_to_new_dict):
 		"""Change indices of all keys in all state variables using ``old_to_new_dict``.
@@ -1086,11 +1094,7 @@ class NodeStateVars(object):
 		-------
 			The current inventory in transit from the predecessor.
 		"""
-		if predecessor is None:
-			p = None
-		else:
-			p = predecessor.index
-
+		p = None if predecessor is None else predecessor.index
 		return np.sum(self.inbound_shipment_pipeline[p][:])
 
 	@property
@@ -1258,21 +1262,17 @@ class NodeStateVars(object):
 		float
 			The adjusted echelon inventory position.
 		"""
-		# Calculate portion of in-transit inventory that was ordered L_i periods
-		# ago or earlier.
-		# Since order quantity to all predecessors is the same, choose one arbitrarily
-		# and get order quantities for that predecessor.
-		in_transit_adjusted = 0
 		pred = self.node.get_one_predecessor()
-		if pred is None:
-			pred_index = None
-		else:
-			pred_index = pred.index
-		for t in range(self.node.equivalent_lead_time, self.node.shipment_lead_time):
-			if self.node.network.period - t >= 0:
-				in_transit_adjusted += self.node.state_vars[self.node.network.period-t].order_quantity[pred_index]
-			# np.sum([self.node.state_vars[self.node.network.period-t].order_quantity[predecessor_index]
-			# 		for t in range(self.node.equivalent_lead_time, self.node.shipment_lead_time)])
+		pred_index = None if pred is None else pred.index
+		in_transit_adjusted = sum(
+			self.node.state_vars[self.node.network.period - t].order_quantity[
+				pred_index
+			]
+			for t in range(
+				self.node.equivalent_lead_time, self.node.shipment_lead_time
+			)
+			if self.node.network.period - t >= 0
+		)
 		# Calculate adjusted echelon inventory position.
 		return self.echelon_inventory_level + in_transit_adjusted
 
@@ -1289,12 +1289,14 @@ class NodeStateVars(object):
 			The dict representation of the object.
 		"""
 		# Initialize dict.
-		sv_dict = {}
+		sv_dict = {
+			'node': self.node.index,
+			'period': self.period,
+			'inbound_shipment_pipeline': copy.deepcopy(
+				self.inbound_shipment_pipeline
+			),
+		}
 
-		# Attributes.
-		sv_dict['node'] 							= self.node.index
-		sv_dict['period']							= self.period
-		sv_dict['inbound_shipment_pipeline']		= copy.deepcopy(self.inbound_shipment_pipeline)
 		sv_dict['inbound_shipment']					= copy.deepcopy(self.inbound_shipment)
 		sv_dict['inbound_order_pipeline']			= copy.deepcopy(self.inbound_order_pipeline)
 		sv_dict['inbound_order']					= copy.deepcopy(self.inbound_order)
@@ -1422,7 +1424,7 @@ class NodeStateVars(object):
 		"""
 
 		if (self.node is not None and other.node is None) or (self.node is None and other.node is not None): return False
-		if self.node is not None and other.node is not None:
+		if self.node is not None:
 			if is_integer(self.node) and is_integer(other.node):
 				if self.node != other.node: return False
 			elif not is_integer(self.node) and not is_integer(other.node):
@@ -1451,7 +1453,5 @@ class NodeStateVars(object):
 		if self.demand_cumul != other.demand_cumul: return False
 		if self.demand_met_from_stock != other.demand_met_from_stock: return False
 		if self.demand_met_from_stock_cumul != other.demand_met_from_stock_cumul: return False
-		if self.fill_rate != other.fill_rate: return False
-
-		return True
+		return self.fill_rate == other.fill_rate
 

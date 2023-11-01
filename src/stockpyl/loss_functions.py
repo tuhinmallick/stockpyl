@@ -1515,9 +1515,7 @@ def discrete_loss(x, distrib=None, pmf=None):
 		# for y in range(0, int(x)):
 		# 	n_bar += distrib.cdf(y)
 	else:
-		# pmf dict has been provided.
-		x_values = list(pmf.keys())
-		x_values.sort()
+		x_values = sorted(pmf.keys())
 		n = float(np.sum([(y - x) * pmf[y] for y in x_values if y >= x]))
 		n_bar = float(np.sum([(x - y) * pmf[y] for y in x_values if y <= x]))
 
@@ -1619,9 +1617,7 @@ def discrete_second_loss(x, distrib=None, pmf=None):
 		n2 = 0.5 * ((x - E)**2 + (x - E) + V) - n2_bar
 
 	else:
-		# pmf dict has been provided.
-		x_values = list(pmf.keys())
-		x_values.sort()
+		x_values = sorted(pmf.keys())
 		n2 = 0.5 * float(np.sum([(y - x) * (y - x - 1) * pmf[y] for y in x_values if y >= x]))
 		n2_bar = 0.5 * float(np.sum([(x - y) * (x + 1 - y) * pmf[y] for y in x_values if y <= x]))
 

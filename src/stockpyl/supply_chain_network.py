@@ -102,10 +102,7 @@ class SupplyChainNetwork(object):
 	def nodes(self):
 		"""List of all nodes in the network, as |class_node| objects. Read only.
 		"""
-		if hasattr(self, '_nodes'):
-			return self._nodes
-		else:
-			return []
+		return self._nodes if hasattr(self, '_nodes') else []
 
 	@property
 	def node_indices(self):
@@ -142,8 +139,7 @@ class SupplyChainNetwork(object):
 		"""
 		edge_list = []
 		for n in self.nodes:
-			for m in n.successors():
-				edge_list.append((n.index, m.index))
+			edge_list.extend((n.index, m.index) for m in n.successors())
 		return edge_list
 
 	def has_directed_cycle(self):
@@ -234,9 +230,8 @@ class SupplyChainNetwork(object):
 							eq = False
 						elif not self.get_node_from_index(n_ind).deep_equal_to(other_node, rel_tol=rel_tol):
 							eq = False
-				else:
-					if getattr(self, attr) != getattr(other, attr):
-						eq = False
+				elif getattr(self, attr) != getattr(other, attr):
+					eq = False
 
 		return eq
 
@@ -257,9 +252,7 @@ class SupplyChainNetwork(object):
 			# Remove leading '_' to get property names.
 			prop = attr[1:] if attr[0] == '_' else attr
 			if attr == '_nodes':
-				network_dict['nodes'] = []
-				for n in self.nodes:
-					network_dict['nodes'].append(n.to_dict())
+				network_dict['nodes'] = [n.to_dict() for n in self.nodes]
 			else:
 				network_dict[prop] = getattr(self, prop)
 
@@ -308,10 +301,7 @@ class SupplyChainNetwork(object):
 				else:
 					# Remove leading '_' to get property names.
 					prop = attr[1:] if attr[0] == '_' else attr
-					if prop in the_dict:
-						value = the_dict[prop]
-					else:
-						value = cls._DEFAULT_VALUES[attr]
+					value = the_dict[prop] if prop in the_dict else cls._DEFAULT_VALUES[attr]
 					setattr(network, attr, value)
 
 		return network
@@ -356,11 +346,7 @@ class SupplyChainNetwork(object):
 			The node whose index is ``index``, or ``None`` if none.
 
 		"""
-		for node in self.nodes:
-			if node.index == index:
-				return node
-
-		return None
+		return next((node for node in self.nodes if node.index == index), None)
 
 	def reindex_nodes(self, old_to_new_dict, new_names=None):
 		"""Change indices of the nodes in the network using ``old_to_new_dict``.
@@ -648,14 +634,11 @@ def network_from_edges(edges, node_order_in_lists=None, **kwargs):
 				network.add_node(SupplyChainNode(e[1]))
 	else:
 		# Add single node.
-		if node_order_in_lists is not None:
-			ind = node_order_in_lists[0]
-		else:
-			ind = 0
+		ind = node_order_in_lists[0] if node_order_in_lists is not None else 0
 		network.add_node(SupplyChainNode(ind))
 
 	# Check attributes in kwargs.
-	for a in kwargs.keys():
+	for a in kwargs:
 		if not hasattr(network.nodes[0], a) and \
 			not hasattr(network.nodes[0].demand_source, a) and \
 			not hasattr(network.nodes[0].inventory_policy, a) and \
@@ -666,9 +649,8 @@ def network_from_edges(edges, node_order_in_lists=None, **kwargs):
 	# Check node_order_in_lists; if not provided, build it.
 	if node_order_in_lists is None:
 		node_order_in_lists = sorted(network.node_indices)
-	else:
-		if set(node_order_in_lists) != set(network.node_indices):
-			raise ValueError("node_order_in_lists does not match nodes contained in edge list")
+	elif set(node_order_in_lists) != set(network.node_indices):
+		raise ValueError("node_order_in_lists does not match nodes contained in edge list")
 
 	# Add edges.
 	for e in edges:
@@ -1181,7 +1163,7 @@ def mwor_system(num_warehouses, node_order_in_system=None, node_order_in_lists=N
 	# Set demand_source parameter so it only occurs at retailer node.
 	if 'demand_source' not in local_kwargs:
 		local_kwargs['demand_source'] = {}
-	for n in node_order_in_system[0:-1]:
+	for n in node_order_in_system[:-1]:
 		local_kwargs['demand_source'][n] = DemandSource()
 
 	# Determine node_order_in_lists.
@@ -1262,11 +1244,12 @@ def echelon_to_local_base_stock_levels(network, S_echelon):
 		node_list.append(n.index)
 		n = n.get_one_predecessor()
 
-	# Calculate S-minus.
-	S_minus = {}
-	for j in range(num_nodes):
-		S_minus[node_list[j]] = np.min([S_echelon[node_list[i]] for i in range(j, num_nodes)])
-
+	S_minus = {
+		node_list[j]: np.min(
+			[S_echelon[node_list[i]] for i in range(j, num_nodes)]
+		)
+		for j in range(num_nodes)
+	}
 	# Calculate S_local.
 	for n in network.nodes:
 		# Get successor.

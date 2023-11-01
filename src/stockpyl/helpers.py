@@ -88,17 +88,13 @@ def dict_match(d1, d2, require_presence=False, rel_tol=1e-9, abs_tol=0.0):
 		if key in d2:
 			if not math.isclose(d1[key], d2[key], rel_tol=rel_tol, abs_tol=abs_tol):
 				match = False
-		else:
-			if not math.isclose(d1[key], 0, rel_tol=rel_tol, abs_tol=abs_tol) \
+		elif not math.isclose(d1[key], 0, rel_tol=rel_tol, abs_tol=abs_tol) \
 					or require_presence:
-				match = False
+			match = False
 
 	# Check d2 against d1.
 	for key in d2.keys():
-		if key in d2:
-			# We already checked in this case.
-			pass
-		else:
+		if key not in d2:
 			if not math.isclose(d2[key], 0, rel_tol=rel_tol, abs_tol=abs_tol) \
 					or require_presence:
 				match = False
@@ -120,17 +116,15 @@ def is_iterable(x):
 		``True`` if ``x`` is iterable, ``False`` if it is a singleton.
 
 	"""
-	# First check whether x is a string (because strings act like iterables).
 	if isinstance(x, str):
 		return False
-	else:
-		try:
-			_ = iter(x)
+	try:
+		_ = iter(x)
 	#		_ = (y for y in x)
-		except TypeError:
-			return False
-		else:
-			return True
+	except TypeError:
+		return False
+	else:
+		return True
 
 
 def is_list(x):
@@ -166,17 +160,12 @@ def is_integer(x):
 
 	"""
 	# Check whether x is an int.
-	if isinstance(x, int):
-		return True
-	# Check whether x is a float.
-	elif isinstance(x, float):
-		# Check whether x is an integer.
-		if x.is_integer():
-			return True
-		else:
-			return False
-	else:
-		return False
+	return bool(
+		not isinstance(x, int)
+		and isinstance(x, float)
+		and x.is_integer()
+		or isinstance(x, int)
+	)
 
 
 def is_discrete_distribution(distribution):
@@ -278,11 +267,16 @@ def find_nearest(array, values, sorted=False, index=dict()):
 			if sorted:
 				# https://stackoverflow.com/a/26026189/3453768
 				idx = np.searchsorted(array, values[v], side="left")
-				if idx > 0 and (idx == len(array) or math.fabs(values[v] - array[idx-1])
-						< math.fabs(values[v] - array[idx])):
-					ind[v] = idx-1
-				else:
-					ind[v] = idx
+				ind[v] = (
+					idx - 1
+					if idx > 0
+					and (
+						idx == len(array)
+						or math.fabs(values[v] - array[idx - 1])
+						< math.fabs(values[v] - array[idx])
+					)
+					else idx
+				)
 			else:
 				# https://stackoverflow.com/a/2566508/3453768
 				idx = (np.abs(array - values[v])).argmin()
@@ -384,20 +378,15 @@ def ensure_list_for_time_periods(x, num_periods, var_name=None):
 	ValueError
 		If ``x`` is not a singleton or a list of length ``num_periods`` or ``num_periods`` + 1.
 	"""
-	# Determine whether x is singleton or iterable.
-	if is_iterable(x):
-		if len(x) == num_periods+1:
-			return x
-		elif len(x) == num_periods:
-			return [0] + x
-		else:
-			if var_name is None:
-				vname = 'x'
-			else:
-				vname = var_name
-			raise ValueError('{:s} must be a singleton or a list of length num_periods or num_periods+1'.format(vname))
-	else:
+	if not is_iterable(x):
 		return [0] + [x] * num_periods
+	if len(x) == num_periods+1:
+		return x
+	elif len(x) == num_periods:
+		return [0] + x
+	else:
+		vname = 'x' if var_name is None else var_name
+		raise ValueError('{:s} must be a singleton or a list of length num_periods or num_periods+1'.format(vname))
 
 
 def ensure_list_for_nodes(x, num_nodes, default=None):
@@ -451,18 +440,14 @@ def ensure_list_for_nodes(x, num_nodes, default=None):
 	ValueError
 		If ``x`` is not a singleton, a list of length ``num_nodes``, or ``None``.
 	"""
-	# Is x None?
 	if x is None:
 		return [default] * num_nodes
+	if not is_iterable(x):
+		return [x] * num_nodes
+	if len(list(x)) == num_nodes:
+		return list(x)
 	else:
-		# Determine whether x is singleton or iterable.
-		if is_iterable(x):
-			if len(list(x)) == num_nodes:
-				return list(x)
-			else:
-				raise ValueError('x must be a singleton, a list of length num_nodes, or None')
-		else:
-			return [x] * num_nodes
+		raise ValueError('x must be a singleton, a list of length num_nodes, or None')
 
 
 def build_node_data_dict(attribute_dict, node_order_in_lists, default_values={}):
@@ -564,11 +549,7 @@ def build_node_data_dict(attribute_dict, node_order_in_lists, default_values={})
 			
 			# Use default (if any).
 			for n in node_order_in_lists:
-				if a in default_values:
-					data_dict[n][a] = default_values[a]
-				else:
-					data_dict[n][a] = None
-
+				data_dict[n][a] = default_values[a] if a in default_values else None
 		elif type(attribute_dict[a]) == dict:
 
 			for n in node_order_in_lists:
@@ -582,19 +563,17 @@ def build_node_data_dict(attribute_dict, node_order_in_lists, default_values={})
 				else:
 					# No, and no default value is provided; use None.
 					data_dict[n][a] = None
-		
-		# If it's a list and a = 'demand_list' or 'probabilities', treat it as a list if any of its elements
-		# and as a singleton othwerwise.
-		elif is_iterable(attribute_dict[a]) and \
-			(a not in ('demand_list', 'probabilities') or any([is_iterable(e) for e in attribute_dict[a]])):
 
-			# attribute_dict[a] is a list; check its length.
-			if len(list(attribute_dict[a])) == len(node_order_in_lists):
-				for k in range(len(node_order_in_lists)):
-					data_dict[node_order_in_lists[k]][a] = attribute_dict[a][k]
-			else:
+		elif is_iterable(attribute_dict[a]) and (
+			a not in ('demand_list', 'probabilities')
+			or any(is_iterable(e) for e in attribute_dict[a])
+		):
+
+			if len(list(attribute_dict[a])) != len(node_order_in_lists):
 				raise ValueError('attribute_dict[a] must be a singleton, dict, list with the same length as node_indices, or None for all a in attribute_names')
 
+			for k in range(len(node_order_in_lists)):
+				data_dict[node_order_in_lists[k]][a] = attribute_dict[a][k]
 		else:
 
 			# attribute_dict[a] is a singleton (or is a list-type attribute). 
@@ -664,14 +643,12 @@ def ensure_dict_for_nodes(x, node_indices, default=None):
 	elif x is None:
 		return {n_ind: default for n_ind in node_indices}
 	else:
-		# Determine whether x is singleton or iterable.
-		if is_iterable(x):
-			if len(list(x)) == len(node_indices):
-				return {node_indices[i]: x[i] for i in range(len(x))}
-			else:
-				raise ValueError('x must be a singleton, dict, list with the same length as node_indices, or None')
-		else:
+		if not is_iterable(x):
 			return {node_indices[i]: x for i in range(len(node_indices))}
+		if len(list(x)) == len(node_indices):
+			return {node_indices[i]: x[i] for i in range(len(x))}
+		else:
+			raise ValueError('x must be a singleton, dict, list with the same length as node_indices, or None')
 
 
 def sort_dict_by_keys(d, ascending=True, return_values=True):
@@ -842,9 +819,10 @@ def irwin_hall_cdf(x, n):
 		The cdf of ``x``.
 	"""
 
-	F = 0
-	for k in range(int(np.floor(x)) + 1):
-		F += ((-1) ** k) * comb(n, k) * (x - k) ** n
+	F = sum(
+		((-1) ** k) * comb(n, k) * (x - k) ** n
+		for k in range(int(np.floor(x)) + 1)
+	)
 	F /= factorial(n)
 
 	return F
@@ -893,9 +871,7 @@ def sum_of_continuous_uniforms_distribution(n, lo=0, hi=1):
 	if not is_integer(n):
 		raise ValueError("n must be an integer")
 
-	distribution = sum_of_continuous_uniforms_rv()
-
-	return distribution
+	return sum_of_continuous_uniforms_rv()
 
 
 def sum_of_discrete_uniforms_pmf(n, lo, hi):
@@ -930,7 +906,7 @@ def sum_of_discrete_uniforms_pmf(n, lo, hi):
 	du_pmf = {i: 1/(hi-lo+1) for i in range(lo, hi+1)}
 	du_sum_pmf = {0: 1}
 
-	for i in range(n):
+	for _ in range(n):
 		new_sum_pmf = defaultdict(float)
 		for prev_sum, dice in product(du_sum_pmf, du_pmf):
 			new_sum_pmf[prev_sum + dice] += du_sum_pmf[prev_sum] * du_pmf[dice]
@@ -970,9 +946,10 @@ def sum_of_discrete_uniforms_distribution(n, lo, hi):
 
 	pmf = sum_of_discrete_uniforms_pmf(n, lo, hi)
 
-	distribution = stats.rv_discrete(name='sum_of_discrete_uniforms', values=(list(pmf.keys()), list(pmf.values())))
-
-	return distribution
+	return stats.rv_discrete(
+		name='sum_of_discrete_uniforms',
+		values=(list(pmf.keys()), list(pmf.values())),
+	)
 	
 	
 def sum_of_discretes_distribution(n, lo, hi, p):
@@ -1026,9 +1003,7 @@ def sum_of_discretes_distribution(n, lo, hi, p):
 	xk = np.arange(n * lo, n * hi + 1)
 	pk = convolve_many([p for _ in range(n)])
 
-	distribution = stats.rv_discrete(name='sum_of_discretes', values=(xk, pk))
-
-	return distribution
+	return stats.rv_discrete(name='sum_of_discretes', values=(xk, pk))
 
 
 def round_dict_values(the_dict, round_type=None):
