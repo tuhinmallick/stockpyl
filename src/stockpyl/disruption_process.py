@@ -168,10 +168,10 @@ class DisruptionProcess(object):
 		if other is None:
 			return False
 		else:
-			for attr in self._DEFAULT_VALUES.keys():
-				if getattr(self, attr) != getattr(other, attr):
-					return False
-			return True
+			return all(
+				getattr(self, attr) == getattr(other, attr)
+				for attr in self._DEFAULT_VALUES.keys()
+			)
 
 	def __ne__(self, other):
 		"""Determine whether ``other`` is not equal to this |class_disruption_process| object. 
@@ -261,9 +261,9 @@ class DisruptionProcess(object):
 				self.disruption_probability, self.recovery_probability)
 		elif self.random_process_type == 'E':
 			if not is_list(self.disruption_state_list) or len(self.disruption_state_list) <= 8:
-				param_str = "disruption_state_list={}".format(self.disruption_state_list)
+				param_str = f"disruption_state_list={self.disruption_state_list}"
 			else:
-				param_str = "disruption_state_list={}...".format(self.disruption_state_list[0:8])
+				param_str = f"disruption_state_list={self.disruption_state_list[:8]}..."
 		else:
 			param_str = ""
 
@@ -417,17 +417,16 @@ class DisruptionProcess(object):
 			``True`` if the new disruption state is disrupted, ``False`` otherwise.
 
 		"""
-		if is_iterable(self.disruption_state_list):
-			if period is None:
-				# Return first demand in disruption_state_list.
-				return self.disruption_state_list[0]
-			else:
-				# Get disruption state for period mod (# periods in disruption_state_list), i.e.,
-				# if we are past the end of the disruption_state_list, loop back to the beginning.
-				return self.disruption_state_list[period % len(self.disruption_state_list)]
-		else:
+		if not is_iterable(self.disruption_state_list):
 			# Return disruption_state_list singleton.
 			return self.disruption_state_list
+		if period is None:
+			# Return first demand in disruption_state_list.
+			return self.disruption_state_list[0]
+		else:
+			# Get disruption state for period mod (# periods in disruption_state_list), i.e.,
+			# if we are past the end of the disruption_state_list, loop back to the beginning.
+			return self.disruption_state_list[period % len(self.disruption_state_list)]
 
 	# OTHER METHODS
 

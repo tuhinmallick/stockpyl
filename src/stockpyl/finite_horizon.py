@@ -417,13 +417,13 @@ def finite_horizon_dp(
 						best_cost = cost
 						best_y = y
 
-						# If this is the largest y in range (and range has more
-						# than one element), abort and increase upper range.
-						if y == x_max and x < x_max:
-							warnings.warn('Cost is still decreasing at upper end of y range; increasing upper range '
-										  'and retrying: t = {:d}, x = {:d}, y = {:d}.'.format(t, x, y))
+						if best_y == x_max and x < x_max:
+							warnings.warn(
+								'Cost is still decreasing at upper end of y range; increasing upper range '
+								'and retrying: t = {:d}, x = {:d}, y = {:d}.'.format(t, x, best_y)
+							)
 							abort = True
-							x_max = x_max * 2
+							x_max *= 2
 							x_range = np.array(range(x_min, x_max + 1))
 							break
 
@@ -435,18 +435,16 @@ def finite_horizon_dp(
 				cost_matrix[t, x - x_min] = best_cost
 				oul_matrix[t, x - x_min] = best_y
 
-			# If abort flag was set in for-y loop, exit for-t loop.
 			if abort:
 				break
-			else:
-				# Determine s^*_t and S^*_t.
-				# S^*_t = OUL for first x-value in range.
-				order_up_to_levels[t] = oul_matrix[t, 0]
-				# s^*_t = largest x s.t. y_t[x] = S^*_t
-				reorder_points[t] = x_range[0]
-				while oul_matrix[t, reorder_points[t] + 1 - x_min] \
-					== order_up_to_levels[t] and reorder_points[t] < x_max:
-					reorder_points[t] += 1
+			# Determine s^*_t and S^*_t.
+			# S^*_t = OUL for first x-value in range.
+			order_up_to_levels[t] = oul_matrix[t, 0]
+			# s^*_t = largest x s.t. y_t[x] = S^*_t
+			reorder_points[t] = x_range[0]
+			while oul_matrix[t, reorder_points[t] + 1 - x_min] \
+				== order_up_to_levels[t] and reorder_points[t] < x_max:
+				reorder_points[t] += 1
 
 			# Raise warning if truncation makes it so that probability of
 			# demand bringing IL below x_range > trunc_tol (i.e., if

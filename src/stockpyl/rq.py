@@ -115,10 +115,7 @@ def r_q_cost(reorder_point, order_quantity, holding_cost, stockout_cost,
 	g_int = integrate.quad(newsvendor_cost, reorder_point,
 						   reorder_point + order_quantity)[0]
 
-	# Calculate (r,Q) cost.
-	cost = (fixed_cost * demand_mean + g_int) / order_quantity
-
-	return cost
+	return (fixed_cost * demand_mean + g_int) / order_quantity
 
 
 def r_q_optimal_r_for_q(order_quantity, holding_cost, stockout_cost,

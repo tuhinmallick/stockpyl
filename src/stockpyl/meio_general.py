@@ -143,7 +143,9 @@ def meio_by_enumeration(network, base_stock_levels=None, truncation_lo=None,
 	# list of dicts, each of which is one of the enumerated solutions and gives
 	# the base-stock levels for each node.
 	# See https://stackoverflow.com/a/40623158/3453768.
-	enumerated_solutions = list((dict(zip(S_dict, x)) for x in product(*S_dict.values())))
+	enumerated_solutions = [
+		dict(zip(S_dict, x)) for x in product(*S_dict.values())
+	]
 
 	# Do progress bar?
 	do_bar = progress_bar and not print_solutions
@@ -189,7 +191,7 @@ def meio_by_enumeration(network, base_stock_levels=None, truncation_lo=None,
 
 		# Print solution, if requested.
 		if print_solutions:
-			print_str = "S = {} cost = {}".format(S_complete, mean_cost)
+			print_str = f"S = {S_complete} cost = {mean_cost}"
 			if mean_cost < best_cost:
 				print_str += ' *'
 			print(print_str)
@@ -295,17 +297,16 @@ def meio_by_coordinate_descent(network, initial_solution=None,
 	def obj_fcn(S):
 		if objective_function is not None:
 			return objective_function(S)
-		else:
-			# Set base-stock levels for all nodes.
-			for n in network.nodes:
-				if n.inventory_policy.type == 'BS':
-					n.inventory_policy.base_stock_level = S[n.index]
-				else:
-					n.inventory_policy.local_base_stock_level = S[n.index]
-			# Run multiple trials of simulation to evaluate solution.
-			cost, _ = run_multiple_trials(network, sim_num_trials, sim_num_periods, sim_rand_seed,
-												  progress_bar=False)
-			return cost
+		# Set base-stock levels for all nodes.
+		for n in network.nodes:
+			if n.inventory_policy.type == 'BS':
+				n.inventory_policy.base_stock_level = S[n.index]
+			else:
+				n.inventory_policy.local_base_stock_level = S[n.index]
+		# Run multiple trials of simulation to evaluate solution.
+		cost, _ = run_multiple_trials(network, sim_num_trials, sim_num_periods, sim_rand_seed,
+											  progress_bar=False)
+		return cost
 
 	# Initialize current solution and cost.
 	current_soln_complete = {n_ind: nto_initial_solution[opt_group[n_ind]] for n_ind in network.node_indices}
@@ -409,16 +410,9 @@ def truncate_and_discretize(node_indices, values=None, truncation_lo=None,
 		node index.
 	"""
 
-	# Define constants for default truncation and discretization settings.
-	DEFAULT_LO = int()
-	DEFAULT_HI = int(100)
-	DEFAULT_STEP = int(1)
-
+	values_provided = False
 	# Were values already provided?
-	if values is None:
-		values_provided = False
-	else:
-		values_provided = False
+	if values is not None:
 		for v in values.values():
 			if v is not None:
 				values_provided = True
@@ -435,6 +429,11 @@ def truncate_and_discretize(node_indices, values=None, truncation_lo=None,
 		# Initialize output dict.
 		truncated_discretized_values = {}
 
+		# Define constants for default truncation and discretization settings.
+		DEFAULT_LO = int()
+		DEFAULT_HI = 100
+		DEFAULT_STEP = 1
+
 		# Loop through nodes.
 		for n_ind in node_indices:
 
@@ -447,7 +446,7 @@ def truncate_and_discretize(node_indices, values=None, truncation_lo=None,
 				num  = int((hi-lo)/step)
 			elif num_dict[n_ind] is not None:
 				num  = num_dict[n_ind]
-				step = (hi-lo)/num if num and hi > lo else int(1)
+				step = (hi-lo)/num if num and hi > lo else 1
 			else:
 				step = DEFAULT_STEP
 				num  = int((hi-lo)/step)
@@ -509,8 +508,7 @@ def _base_stock_group_assignments(node_indices, groups=None):
 	# Build group_list.
 	group_list = []
 	for i in node_indices:
-		g = [n_ind for n_ind in node_indices if opt_group[n_ind] == i]
-		if g:
+		if g := [n_ind for n_ind in node_indices if opt_group[n_ind] == i]:
 			group_list.append(g)
 
 	return opt_group, group_list

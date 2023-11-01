@@ -163,8 +163,6 @@ def _cst_dp_tree(tree):
 		# Get shortcuts to some parameters (for convenience).
 		k = tree.get_node_from_index(k_index)
 		max_replen_time = k.max_replenishment_time
-		proc_time = k.processing_time
-
 		# Evaluate theta_out(k_index, S) if p(k_index) is downstream from k_index and
 		# and k_index < final k_index, evaluate theta_in(k_index, SI) otherwise.
 		if k_index < max_k_index and k.larger_adjacent_node_is_downstream:
@@ -189,6 +187,8 @@ def _cst_dp_tree(tree):
 				best_cst_adjacent[k_index][S] = best_cst_adjacent[k_index][max_replen_time]
 
 		else:
+
+			proc_time = k.processing_time
 
 			# p(k_index) is upstream from k_index -- evaluate theta_in(k_index, SI).
 			for SI in range(max_replen_time - proc_time + 1):
@@ -612,7 +612,7 @@ def preprocess_tree(tree):
 	sinks_with_dbc = [k for k in new_tree.sink_nodes if k.demand_bound_constant is not None]
 	for k in new_tree.nodes:
 		if k.demand_bound_constant is None:
-			if sinks_with_dbc == []:
+			if not sinks_with_dbc:
 				k.demand_bound_constant = 1
 			else:
 				k.demand_bound_constant = \
@@ -802,11 +802,7 @@ def _find_larger_adjacent_nodes(tree):
 			larger_adjacent[k.index] = larger_adjacent_list[0]
 
 			# Set downstream flag.
-			if larger_adjacent[k.index] in k.successor_indices():
-				downstream[k.index] = True
-			else:
-				downstream[k.index] = False
-
+			downstream[k.index] = larger_adjacent[k.index] in k.successor_indices()
 	return larger_adjacent, downstream
 
 
@@ -840,22 +836,24 @@ def _longest_paths(tree):
 		for p in k.predecessors():
 			temp_tree[p.index][k.index]['weight'] = k.processing_time
 		if temp_tree.in_degree(k.index) == 0 or (k.external_inbound_cst or 0) > 0:
-			temp_tree.add_edge('dummy_' + str(k.index), k.index,
-				weight=k.processing_time + (k.external_inbound_cst or 0))
+			temp_tree.add_edge(
+				f'dummy_{str(k.index)}',
+				k.index,
+				weight=k.processing_time + (k.external_inbound_cst or 0),
+			)
 
 	# Determine shortest path between every pair of nodes.
 	# (Really there's only one path, but shortest path is the
 	# most straightforward algorithm to use here.)
 	path_lengths = dict(nx.shortest_path_length(temp_tree, weight='weight'))
 
-	# Determine longest shortest path to each node k, among all
-	# source nodes that are ancestors to k.
-	longest_lengths = {}
-	for k in tree.nodes:
-		longest_lengths[k.index] = max([path_lengths[i][k.index] for i in
-								  nx.ancestors(temp_tree, k.index)], default=0)
-
-	return longest_lengths
+	return {
+		k.index: max(
+			(path_lengths[i][k.index] for i in nx.ancestors(temp_tree, k.index)),
+			default=0,
+		)
+		for k in tree.nodes
+	}
 
 
 def _net_demand(tree):
@@ -930,8 +928,9 @@ def _connected_subgraph_nodes(tree):
 		# Build subgraph on {min_k,...,k}.
 		subgraph = networkx_tree.to_undirected().subgraph(range(np.min(networkx_tree.nodes), k+1))
 		# Build set of connected nodes.
-		connected_nodes[k] = set(i for i in subgraph.nodes if
-							  nx.has_path(subgraph, i, k))
+		connected_nodes[k] = {
+			i for i in subgraph.nodes if nx.has_path(subgraph, i, k)
+		}
 
 	return connected_nodes
 
@@ -972,16 +971,12 @@ def gsm_to_ssm(tree, p=None):
 			echelon_holding_cost=n.local_holding_cost-upstream_h))
 		SSM_node = SSM_tree.get_node_from_index(n.index)
 		SSM_node.demand_source = copy.deepcopy(n.demand_source)
-		if p is not None:
-			if n.demand_source is not None:
-				if isinstance(p, dict):
-					SSM_node.stockout_cost = p[SSM_node.index]
-				else:
-					SSM_node.stockout_cost = p
-		else:
+		if p is None:
 			if n.stockout_cost is not None:
 				SSM_node.stockout_cost = n.stockout_cost
 
+		elif n.demand_source is not None:
+			SSM_node.stockout_cost = p[SSM_node.index] if isinstance(p, dict) else p
 	# Add edges.
 	edge_list = tree.edges
 	SSM_tree.add_edges_from_list(edge_list)

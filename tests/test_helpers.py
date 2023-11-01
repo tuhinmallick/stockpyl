@@ -255,12 +255,13 @@ class TestIsDiscreteDistribution(unittest.TestCase):
 		"""
 		print_status('TestIsDiscreteDistribution', 'test_custom_continuous()')
 
+
+
 		class continuous_gen(stats.rv_continuous):
 			def _pdf(self, x, *args):
-				if 0 <= x <= 1:
-					return 1
-				else:
-					return 0
+				return 1 if 0 <= x <= 1 else 0
+
+
 		dist = continuous_gen()
 
 		is_discrete = helpers.is_discrete_distribution(dist)
@@ -317,12 +318,13 @@ class TestIsContinuousDistribution(unittest.TestCase):
 		"""
 		print_status('TestIsContinuousDistribution', 'test_custom_continuous()')
 
+
+
 		class continuous_gen(stats.rv_continuous):
 			def _pdf(self, x, *args):
-				if 0 <= x <= 1:
-					return 1
-				else:
-					return 0
+				return 1 if 0 <= x <= 1 else 0
+
+
 		dist = continuous_gen()
 
 		is_discrete = helpers.is_continuous_distribution(dist)
@@ -504,12 +506,13 @@ class TestBuildNodeDataDict(unittest.TestCase):
 		"""
 		print_status('TestBuildNodeDataDict', 'test_various()')
 
-		attribute_dict = {}
-		attribute_dict['local_holding_cost'] = 1
-		attribute_dict['stockout_cost'] = [10, 8, 0]
-		attribute_dict['demand_mean'] = {1: 0, 3: 50}
-		attribute_dict['lead_time'] = None
-		attribute_dict['processing_time'] = None
+		attribute_dict = {
+			'local_holding_cost': 1,
+			'stockout_cost': [10, 8, 0],
+			'demand_mean': {1: 0, 3: 50},
+			'lead_time': None,
+			'processing_time': None,
+		}
 		node_indices = [3, 2, 1]
 		default_values = {'lead_time': 0, 'demand_mean': 99}
 		data_dict = helpers.build_node_data_dict(attribute_dict, node_indices, default_values)
@@ -525,14 +528,15 @@ class TestBuildNodeDataDict(unittest.TestCase):
 		"""
 		print_status('TestBuildNodeDataDict', 'test_various()')
 
-		attribute_dict = {}
-		attribute_dict['local_holding_cost'] = 1
-		attribute_dict['stockout_cost'] = [10, 8, 0]
-		attribute_dict['demand_mean'] = {1: 0, 3: 50}
-		attribute_dict['demand_list'] = [0, 1, 2, 3]
-		attribute_dict['probabilities'] = [0.25, 0.25, 0.4, 0.1]
-		attribute_dict['lead_time'] = None
-		attribute_dict['processing_time'] = None
+		attribute_dict = {
+			'local_holding_cost': 1,
+			'stockout_cost': [10, 8, 0],
+			'demand_mean': {1: 0, 3: 50},
+			'demand_list': [0, 1, 2, 3],
+			'probabilities': [0.25, 0.25, 0.4, 0.1],
+			'lead_time': None,
+			'processing_time': None,
+		}
 		node_indices = [3, 2, 1]
 		default_values = {'lead_time': 0, 'demand_mean': 99}
 		data_dict = helpers.build_node_data_dict(attribute_dict, node_indices, default_values)
@@ -547,9 +551,7 @@ class TestBuildNodeDataDict(unittest.TestCase):
 		"""		
 		print_status('TestBuildNodeDataDict', 'test_bad_attribute_value()')
 
-		attribute_dict = {}
-		attribute_dict['local_holding_cost'] = 1
-		attribute_dict['stockout_cost'] = [10, 8, 0, 7]
+		attribute_dict = {'local_holding_cost': 1, 'stockout_cost': [10, 8, 0, 7]}
 		node_indices = [3, 2, 1]
 		with self.assertRaises(ValueError):
 			_ = helpers.build_node_data_dict(attribute_dict, node_indices)

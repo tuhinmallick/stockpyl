@@ -203,10 +203,7 @@ def newsvendor_normal_cost(base_stock_level, holding_cost, stockout_cost,
 	# Calculate loss functions.
 	n, n_bar = lf.normal_loss(base_stock_level, ltd_mean, ltd_sd)
 
-	# Calculate cost.
-	cost = holding_cost * n_bar + stockout_cost * n
-
-	return cost
+	return holding_cost * n_bar + stockout_cost * n
 
 
 def newsvendor_poisson(holding_cost, stockout_cost, demand_mean,
@@ -363,10 +360,7 @@ def newsvendor_poisson_cost(base_stock_level, holding_cost, stockout_cost,
 	# Calculate loss functions.
 	n, n_bar = lf.poisson_loss(base_stock_level, demand_mean)
 
-	# Calculate cost.
-	cost = holding_cost * n_bar + stockout_cost * n
-
-	return cost
+	return holding_cost * n_bar + stockout_cost * n
 
 
 def newsvendor_continuous(holding_cost, stockout_cost, demand_distrib=None,
@@ -465,10 +459,6 @@ def newsvendor_continuous(holding_cost, stockout_cost, demand_distrib=None,
 		if demand_distrib is not None:
 			# Use built-in ppf (F-inverse) function.
 			base_stock_level = demand_distrib.ppf(alpha)
-		else:
-			# NEED TO HANDLE THIS CASE
-			pass
-
 	# Calculate loss functions.
 	n, n_bar = lf.continuous_loss(base_stock_level, demand_distrib)
 
@@ -568,13 +558,8 @@ def newsvendor_discrete(holding_cost, stockout_cost, demand_distrib=None,
 		alpha = stockout_cost / (stockout_cost + holding_cost)
 
 		# Was distribution provided?
-		if demand_distrib is not None:
-			# Use built-in ppf (F-inverse) function.
-			base_stock_level = demand_distrib.ppf(alpha)
-		else:
-			# Build sorted list of demand values.
-			demand_values = list(demand_pmf.keys())
-			demand_values.sort()
+		if demand_distrib is None:
+			demand_values = sorted(demand_pmf.keys())
 			# Loop through demands until cdf exceeds alpha.
 			i = 0
 			F = 0
@@ -585,10 +570,10 @@ def newsvendor_discrete(holding_cost, stockout_cost, demand_distrib=None,
 					break
 			# Set base-stock level.
 			base_stock_level = demand_values[i-1]
-	else:
-		# Check for integer base_stock_level
-		if not is_integer(base_stock_level): raise ValueError("base_stock_level must be an integer")
-
+		else:
+			# Use built-in ppf (F-inverse) function.
+			base_stock_level = demand_distrib.ppf(alpha)
+	elif not is_integer(base_stock_level): raise ValueError("base_stock_level must be an integer")
 	# Calculate loss functions.
 	n, n_bar = lf.discrete_loss(base_stock_level, demand_distrib, demand_pmf)
 
@@ -907,10 +892,7 @@ def set_myopic_cost_to(
 								purchase_cost_next_per, demand_mean, demand_sd,
 								discount_factor) - cost
 
-	# Use Brent method to find zero of G_t(y) - cost.
-	base_stock_level = brentq(fun, a, b)
-
-	return base_stock_level
+	return brentq(fun, a, b)
 
 
 def newsvendor_normal_explicit(revenue, purchase_cost, salvage_value,
